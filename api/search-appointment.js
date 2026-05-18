@@ -1,19 +1,15 @@
-const express = require('express');
-const cors = require('cors');
-// If you are using an older Node version, you may need to run: npm install node-fetch
-// const fetch = require('node-fetch'); 
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-const app = express();
-
-// 1. THIS FIXES THE "FAILED TO FETCH" ERROR
-app.use(cors({ origin: '*' }));
-app.use(express.json());
-
-// 2. YOUR APPOINTMENT SEARCH ROUTE
-app.post('/search-appointment', async (req, res) => {
   try {
     const { firstName, lastName } = req.body;
-    const API_KEY = process.env.CRM_API_KEY; // Make sure this is set in Vercel Environment Variables!
+    const API_KEY = process.env.CRM_API_KEY;
+
+    if (!API_KEY) {
+      return res.status(500).json({ error: 'CRM_API_KEY not configured' });
+    }
 
     // Step A: Find the contact
     const contactRes = await fetch(`https://rest.gohighlevel.com/v1/contacts/?query=${firstName} ${lastName}`, {
@@ -40,7 +36,7 @@ app.post('/search-appointment', async (req, res) => {
     // Get the most recent future appointment
     const upcomingApt = aptData.appointments.find(apt => new Date(apt.startTime) > new Date()) || aptData.appointments[0];
 
-    // Send it back to the website
+    // Send it back
     res.json({
       date: new Date(upcomingApt.startTime).toLocaleDateString(),
       time: new Date(upcomingApt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -52,7 +48,4 @@ app.post('/search-appointment', async (req, res) => {
     console.error("Search Error:", error);
     res.status(500).json({ error: "Server error while searching for appointment." });
   }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
