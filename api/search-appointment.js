@@ -1,20 +1,19 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+app.post('/search-appointment', async (req, res) => {
   const { firstName, lastName } = req.body;
   const API_KEY = process.env.CRM_API_KEY;
-
-  if (!API_KEY) {
-    return res.status(500).json({ error: 'CRM_API_KEY not configured' });
-  }
+  const LOCATION_ID = "7zoZNtck1GsQYw6bX4Bi"; // Your specific location ID
 
   try {
-    // 1. Find the contact in your CRM
-    const contactRes = await fetch(`https://services.leadconnectorhq.com/contacts/search?query=${firstName} ${lastName}`, {
-      headers: { 'Authorization': `Bearer ${API_KEY}`, 'Version': '2021-07-28' }
+    // 1. Find the contact properly encoded
+    const query = encodeURIComponent(`${firstName} ${lastName}`);
+    const contactRes = await fetch(`https://services.leadconnectorhq.com/contacts/search?query=${query}`, {
+      headers: { 
+        'Authorization': `Bearer ${API_KEY}`, 
+        'Version': '2021-07-28',
+        'Location-Id': LOCATION_ID
+      }
     });
+    
     const contactData = await contactRes.json();
     
     if (!contactData.contacts || contactData.contacts.length === 0) {
@@ -24,17 +23,22 @@ export default async function handler(req, res) {
     const contactId = contactData.contacts[0].id;
 
     // 2. Find appointments for that contact
-    const apptRes = await fetch(`https://services.leadconnectorhq.com/appointments/?contactId=${contactId}`, {
-      headers: { 'Authorization': `Bearer ${API_KEY}`, 'Version': '2021-04-15' }
+    const apptRes = await fetch(`https://services.leadconnectorhq.com/calendars/events?contactId=${contactId}`, {
+      headers: { 
+        'Authorization': `Bearer ${API_KEY}`, 
+        'Version': '2021-04-15',
+        'Location-Id': LOCATION_ID
+      }
     });
+    
     const apptData = await apptRes.json();
 
-    if (!apptData.appointments || apptData.appointments.length === 0) {
+    if (!apptData.events || apptData.events.length === 0) {
       return res.status(404).json({ error: "No upcoming appointments found." });
     }
 
     // 3. Format the most recent appointment
-    const appointment = apptData.appointments[0]; 
+    const appointment = apptData.events[0]; 
     const dateObj = new Date(appointment.startTime);
 
     res.json({
@@ -45,7 +49,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Search error:", error);
     res.status(500).json({ error: "Could not connect to the booking system." });
   }
-}
+});
