@@ -19,29 +19,26 @@ export default async function handler(req, res) {
       { id: 'IydhVhv7iNfjBuJeiKvl', name: 'Luis' }
     ];
 
-    const startTime = new Date().toISOString();
-    const endTime = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    const startTime = Date.now();
+    const endTime = startTime + (60 * 24 * 60 * 60 * 1000);
 
-    // Fetch all 4 calendars at the same time
     const results = await Promise.all(
       calendarIds.map(async (cal) => {
-        const response = await fetch(
-          `https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}&calendarId=${cal.id}&startTime=${startTime}&endTime=${endTime}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${API_KEY}`,
-              'Version': '2021-04-15',
-              'Accept': 'application/json'
-            }
+        const url = `https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}&calendarId=${cal.id}&startTime=${startTime}&endTime=${endTime}`;
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Version': '2021-04-15',
+            'Accept': 'application/json'
           }
-        );
+        });
         const data = await response.json();
+        console.log(`${cal.name} — status: ${response.status}, events: ${data.events?.length ?? 'no key'}, keys: ${Object.keys(data).join(',')}`);
         const events = (data.events || []).map(e => ({ ...e, barberName: cal.name }));
         return events;
       })
     );
 
-    // Combine all events from all 4 calendars
     const allEvents = results.flat();
     console.log('Total events found:', allEvents.length);
 
