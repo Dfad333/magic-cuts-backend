@@ -19,8 +19,9 @@ export default async function handler(req, res) {
       { id: 'IydhVhv7iNfjBuJeiKvl', name: 'Luis' }
     ];
 
-    const startTime = Date.now();
-    const endTime = startTime + (60 * 24 * 60 * 60 * 1000);
+    // Wide window: 30 days back to 90 days forward
+    const startTime = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const endTime = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
     const results = await Promise.all(
       calendarIds.map(async (cal) => {
@@ -33,7 +34,11 @@ export default async function handler(req, res) {
           }
         });
         const data = await response.json();
-        console.log(`${cal.name} — status: ${response.status}, events: ${data.events?.length ?? 'no key'}, keys: ${Object.keys(data).join(',')}`);
+        // Log the FULL raw response for the first calendar to see the data shape
+        if (cal.name === 'Bebo') {
+          console.log('Bebo raw response:', JSON.stringify(data).slice(0, 1000));
+        }
+        console.log(`${cal.name} — status: ${response.status}, events: ${data.events?.length ?? 'no key'}`);
         const events = (data.events || []).map(e => ({ ...e, barberName: cal.name }));
         return events;
       })
