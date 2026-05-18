@@ -2,7 +2,7 @@
   "name": "magic-cuts-backend",
   "version": "1.0.0",
   "dependencies": {
-    "stripe": "^14.0.0"
+    "stripe": "^14.0.0",
     "cors": "^2.8.5"
   }
 }
