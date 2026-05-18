@@ -12,32 +12,43 @@ export default async function handler(req, res) {
     if (!API_KEY) return res.status(500).json({ error: 'CRM_API_KEY not configured' });
 
     const locationId = '7zoZNtck1GsQYw6bX4Bi';
+    const calendarIds = [
+      { id: '7upZjy9EHaxoga6rVC9k', name: 'Bebo' },
+      { id: 'HNI4myeBc1oQZef9BnT3', name: 'Alejandro' },
+      { id: 'uqJ4VfsHah4mBaN5DDAP', name: 'Bashar' },
+      { id: 'IydhVhv7iNfjBuJeiKvl', name: 'Luis' }
+    ];
+
     const startTime = new Date().toISOString();
     const endTime = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
 
-    const response = await fetch(
-      `https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}&startTime=${startTime}&endTime=${endTime}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'Version': '2021-04-15',
-          'Accept': 'application/json'
-        }
-      }
+    // Fetch all 4 calendars at the same time
+    const results = await Promise.all(
+      calendarIds.map(async (cal) => {
+        const response = await fetch(
+          `https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}&calendarId=${cal.id}&startTime=${startTime}&endTime=${endTime}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${API_KEY}`,
+              'Version': '2021-04-15',
+              'Accept': 'application/json'
+            }
+          }
+        );
+        const data = await response.json();
+        const events = (data.events || []).map(e => ({ ...e, barberName: cal.name }));
+        return events;
+      })
     );
 
-    const data = await response.json();
-    console.log('GHL status:', response.status);
-    console.log('GHL body:', JSON.stringify(data).slice(0, 500));
-
-    if (!data.events || data.events.length === 0) {
-      return res.status(404).json({ error: "No upcoming appointments found." });
-    }
+    // Combine all events from all 4 calendars
+    const allEvents = results.flat();
+    console.log('Total events found:', allEvents.length);
 
     const searchFirst = firstName.trim().toLowerCase();
     const searchLast = lastName.trim().toLowerCase();
 
-    const match = data.events.find(event => {
+    const match = allEvents.find(event => {
       const contactName = (event.contactName || '').toLowerCase();
       const title = (event.title || '').toLowerCase();
       return (
@@ -55,7 +66,7 @@ export default async function handler(req, res) {
     res.json({
       date: dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
       time: dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      barber: match.assignedTo || 'Your Barber',
+      barber: match.barberName || 'Your Barber',
       service: match.title || 'Grooming Service'
     });
 
