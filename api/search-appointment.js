@@ -1,19 +1,24 @@
-app.post('/search-appointment', async (req, res) => {
-  const { firstName, lastName } = req.body;
-  const API_KEY = process.env.CRM_API_KEY;
-  const LOCATION_ID = "7zoZNtck1GsQYw6bX4Bi"; // Your specific location ID
+const express = require('express');
+const cors = require('cors');
+// If you are using an older Node version, you may need to run: npm install node-fetch
+// const fetch = require('node-fetch'); 
 
+const app = express();
+
+// 1. THIS FIXES THE "FAILED TO FETCH" ERROR
+app.use(cors({ origin: '*' }));
+app.use(express.json());
+
+// 2. YOUR APPOINTMENT SEARCH ROUTE
+app.post('/search-appointment', async (req, res) => {
   try {
-    // 1. Find the contact properly encoded
-    const query = encodeURIComponent(`${firstName} ${lastName}`);
-    const contactRes = await fetch(`https://services.leadconnectorhq.com/contacts/search?query=${query}`, {
-      headers: { 
-        'Authorization': `Bearer ${API_KEY}`, 
-        'Version': '2021-07-28',
-        'Location-Id': LOCATION_ID
-      }
+    const { firstName, lastName } = req.body;
+    const API_KEY = process.env.CRM_API_KEY; // Make sure this is set in Vercel Environment Variables!
+
+    // Step A: Find the contact
+    const contactRes = await fetch(`https://rest.gohighlevel.com/v1/contacts/?query=${firstName} ${lastName}`, {
+      headers: { 'Authorization': `Bearer ${API_KEY}` }
     });
-    
     const contactData = await contactRes.json();
     
     if (!contactData.contacts || contactData.contacts.length === 0) {
@@ -22,34 +27,32 @@ app.post('/search-appointment', async (req, res) => {
     
     const contactId = contactData.contacts[0].id;
 
-    // 2. Find appointments for that contact
-    const apptRes = await fetch(`https://services.leadconnectorhq.com/calendars/events?contactId=${contactId}`, {
-      headers: { 
-        'Authorization': `Bearer ${API_KEY}`, 
-        'Version': '2021-04-15',
-        'Location-Id': LOCATION_ID
-      }
+    // Step B: Get their appointments
+    const aptRes = await fetch(`https://rest.gohighlevel.com/v1/appointments/?contactId=${contactId}`, {
+      headers: { 'Authorization': `Bearer ${API_KEY}` }
     });
-    
-    const apptData = await apptRes.json();
+    const aptData = await aptRes.json();
 
-    if (!apptData.events || apptData.events.length === 0) {
+    if (!aptData.appointments || aptData.appointments.length === 0) {
       return res.status(404).json({ error: "No upcoming appointments found." });
     }
 
-    // 3. Format the most recent appointment
-    const appointment = apptData.events[0]; 
-    const dateObj = new Date(appointment.startTime);
+    // Get the most recent future appointment
+    const upcomingApt = aptData.appointments.find(apt => new Date(apt.startTime) > new Date()) || aptData.appointments[0];
 
+    // Send it back to the website
     res.json({
-      date: dateObj.toLocaleDateString(),
-      time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      barber: appointment.calendarName || "Assigned Barber", 
-      service: appointment.title || "Service"
+      date: new Date(upcomingApt.startTime).toLocaleDateString(),
+      time: new Date(upcomingApt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      barber: upcomingApt.calendarName || "Your Barber",
+      service: upcomingApt.title || "Your Service"
     });
 
   } catch (error) {
-    console.error("Search error:", error);
-    res.status(500).json({ error: "Could not connect to the booking system." });
+    console.error("Search Error:", error);
+    res.status(500).json({ error: "Server error while searching for appointment." });
   }
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
