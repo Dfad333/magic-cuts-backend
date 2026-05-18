@@ -12,23 +12,23 @@ export default async function handler(req, res) {
     if (!API_KEY) return res.status(500).json({ error: 'CRM_API_KEY not configured' });
 
     const locationId = '7zoZNtck1GsQYw6bX4Bi';
-    const now = Date.now();
-    const sixtyDaysFromNow = now + (60 * 24 * 60 * 60 * 1000);
+    const startTime = new Date().toISOString();
+    const endTime = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
 
     const response = await fetch(
-      `https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}&startTime=${now}&endTime=${sixtyDaysFromNow}`,
+      `https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}&startTime=${startTime}&endTime=${endTime}`,
       {
         headers: {
           'Authorization': `Bearer ${API_KEY}`,
-          'Version': '2021-07-28',
+          'Version': '2021-04-15',
           'Accept': 'application/json'
         }
       }
     );
 
     const data = await response.json();
-    console.log('GHL response status:', response.status);
-    console.log('GHL events count:', data.events?.length ?? 'no events key');
+    console.log('GHL status:', response.status);
+    console.log('GHL body:', JSON.stringify(data).slice(0, 500));
 
     if (!data.events || data.events.length === 0) {
       return res.status(404).json({ error: "No upcoming appointments found." });
