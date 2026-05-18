@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'CRM_API_KEY not configured' });
     }
 
-    const contactRes = await fetch(`https://rest.gohighlevel.com/v1/contacts/?query=${firstName} ${lastName}`, {
+    const contactRes = await fetch(`https://rest.gohighlevel.com/v1/contacts/?query=${encodeURIComponent(firstName + ' ' + lastName)}`, {
       headers: { 'Authorization': `Bearer ${API_KEY}` }
     });
     const contactData = await contactRes.json();
