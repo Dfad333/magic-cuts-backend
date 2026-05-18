@@ -1,20 +1,31 @@
-app.post('/api/search-appointment', async (req, res) => {
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
   try {
     const { firstName, lastName } = req.body;
-    const locationId = "7zoZNtck1GsQYw6bX4Bi"; // Your location ID
-    
-    // 1. Fetch upcoming appointments directly from the calendar
-    const response = await fetch(`https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.YOUR_API_KEY}`, // Ensure this matches your API key variable name
-        'Version': '2021-07-28',
-        'Accept': 'application/json'
+    const API_KEY = process.env.CRM_API_KEY;
+    if (!API_KEY) return res.status(500).json({ error: 'CRM_API_KEY not configured' });
+
+    const locationId = '7zoZNtck1GsQYw6bX4Bi';
+
+    const response = await fetch(
+      `https://services.leadconnectorhq.com/calendars/events?locationId=${locationId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Version': '2021-07-28',
+          'Accept': 'application/json'
+        }
       }
-    });
-    
+    );
+
     const data = await response.json();
-    
+
     if (!data.events || data.events.length === 0) {
       return res.status(404).json({ error: "No upcoming appointments found." });
     }
@@ -22,33 +33,30 @@ app.post('/api/search-appointment', async (req, res) => {
     const searchFirst = firstName.trim().toLowerCase();
     const searchLast = lastName.trim().toLowerCase();
 
-    // 2. Filter the calendar events to find a match by name on the calendar itself
-    const myAppointment = data.events.find(event => {
-      const contactName = (event.contactName || "").toLowerCase();
-      const title = (event.title || "").toLowerCase();
-      
+    const match = data.events.find(event => {
+      const contactName = (event.contactName || '').toLowerCase();
+      const title = (event.title || '').toLowerCase();
       return (
-        contactName.includes(`${searchFirst} ${searchLast}`) || 
+        contactName.includes(`${searchFirst} ${searchLast}`) ||
         (title.includes(searchFirst) && title.includes(searchLast))
       );
     });
 
-    if (!myAppointment) {
-      return res.status(404).json({ error: "No appointment found for this name." });
+    if (!match) {
+      return res.status(404).json({ error: "No appointment found for that name." });
     }
 
-    // 3. Format the date and time to send back to the website
-    const dateObj = new Date(myAppointment.startTime);
-    
+    const dateObj = new Date(match.startTime);
+
     res.json({
       date: dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
       time: dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      barber: myAppointment.assignedTo || "Your Barber", 
-      service: myAppointment.title || "Grooming Service"
+      barber: match.assignedTo || 'Your Barber',
+      service: match.title || 'Grooming Service'
     });
 
   } catch (error) {
-    console.error("Search error:", error);
-    res.status(500).json({ error: "Server error while searching." });
+    console.error('Search error:', error);
+    res.status(500).json({ error: 'Server error while searching.' });
   }
-});
+}
