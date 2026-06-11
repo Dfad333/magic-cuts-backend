@@ -39,6 +39,9 @@ export default async function handler(req, res) {
     let barberName = 'Your Barber';
     let serviceName = 'Grooming Service';
 
+    // Calculate the time 24 hours ago
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
     for (const contact of uniqueContacts) {
       const aptRes = await fetch(
         `https://services.leadconnectorhq.com/contacts/${contact.id}/appointments`,
@@ -51,7 +54,8 @@ export default async function handler(req, res) {
 
       const match = appointments.find(apt => {
         const title = (apt.title || '').toLowerCase();
-        return title.includes(searchFirst) && title.includes(searchLast) && new Date(apt.startTime) > new Date();
+        // Check if appointment is after 24 hours ago instead of strictly in the future
+        return title.includes(searchFirst) && title.includes(searchLast) && new Date(apt.startTime) > twentyFourHoursAgo;
       });
 
       if (match) {
@@ -66,7 +70,7 @@ export default async function handler(req, res) {
     }
 
     if (!upcomingApt) {
-      return res.status(404).json({ error: 'No upcoming appointment found for that name.' });
+      return res.status(404).json({ error: 'No recent or upcoming appointment found for that name.' });
     }
 
     const dateObj = new Date(upcomingApt.startTime);
